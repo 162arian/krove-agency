@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
+import { Environment } from '@react-three/drei'
 import { EffectComposer, ChromaticAberration, Bloom, Noise } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
@@ -47,17 +48,22 @@ function IceCrystal({ height, radius, position, rotation, speed = 0.007 }) {
   const geo = useMemo(() => createIceCrystalGeo(height, radius), [height, radius])
 
   const mat = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color:               new THREE.Color('#c2dff5'),
-    transmission:        0.92,       // fast komplett transparent
-    roughness:           0.035,      // sehr glatte Eisfläche
+    color:               new THREE.Color('#b8deff'),
+    transmission:        0.82,       // Glaseffekt
+    roughness:           0.015,      // sehr glatte Eisfläche — scharfe Highlights
     metalness:           0.0,
     ior:                 1.31,       // echter Brechungsindex von Eis
-    thickness:           radius * 4,
+    thickness:           radius * 3.5,
     transparent:         true,
     side:                THREE.DoubleSide,
-    envMapIntensity:     1.0,
-    attenuationColor:    new THREE.Color('#88c0f0'),
-    attenuationDistance: 3.0,        // Licht wird blau eingefärbt
+    envMapIntensity:     1.4,
+    attenuationColor:    new THREE.Color('#66aaff'),
+    attenuationDistance: 2.0,
+    specularIntensity:   1.0,
+    specularColor:       new THREE.Color('#ffffff'),
+    iridescence:         0.4,        // Prismatisches Kristallschimmern
+    iridescenceIOR:      1.8,
+    iridescenceThicknessRange: [80, 400],
   }), [radius])
 
   useFrame((_, delta) => {
@@ -75,15 +81,20 @@ function IceCrystalInner({ height, radius, position, rotation }) {
   const geo = useMemo(() => createIceCrystalGeo(height * 0.7, radius * 0.6, 0.18), [height, radius])
 
   const mat = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color:            new THREE.Color('#d8eeff'),
-    transmission:     0.96,
-    roughness:        0.01,
-    metalness:        0.02,
+    color:            new THREE.Color('#ddf0ff'),
+    transmission:     0.92,
+    roughness:        0.008,
+    metalness:        0.0,
     ior:              1.31,
     thickness:        radius * 2,
     transparent:      true,
     side:             THREE.DoubleSide,
-    envMapIntensity:  1.2,
+    envMapIntensity:  1.6,
+    specularIntensity: 1.0,
+    specularColor:    new THREE.Color('#ffffff'),
+    iridescence:      0.25,
+    iridescenceIOR:   1.5,
+    iridescenceThicknessRange: [60, 300],
   }), [radius])
 
   useFrame((_, delta) => {
@@ -160,18 +171,20 @@ function IceBase() {
 function ColdLights() {
   return (
     <>
-      {/* Sehr dunkles, kaltes Ambiente */}
-      <ambientLight color="#0d1f38" intensity={2.0} />
-      {/* Hauptlicht — oben rechts, kaltes Weiß */}
-      <directionalLight color="#cce8ff" intensity={3.5} position={[7, 10, 5]} />
-      {/* Fülllicht links — Eisblau */}
-      <pointLight color="#3a7acc" intensity={5.0} distance={30} position={[-6, 4, 7]} />
-      {/* Gegenlicht — schafft Silhouette-Glow */}
-      <pointLight color="#6699ee" intensity={3.0} distance={22} position={[3, -1, -8]} />
-      {/* Unterlicht — magisches Aufleuchten der Kristalle von unten */}
-      <pointLight color="#b0d8ff" intensity={4.5} distance={16} position={[0.5, -6, 3]} />
-      {/* Akzentlicht — rechts oben, Facetten-Highlights */}
-      <pointLight color="#ffffff" intensity={2.0} distance={12} position={[4, 6, 2]} />
+      {/* Ambiente — kaltes Eisblau */}
+      <ambientLight color="#6ea8d8" intensity={0.6} />
+      {/* Hauptlicht — oben rechts, hartes Kristall-Highlight */}
+      <directionalLight color="#ffffff" intensity={4.0} position={[7, 12, 5]} castShadow />
+      {/* Fülllicht links — tiefes Eisblau */}
+      <pointLight color="#2266bb" intensity={8.0} distance={35} position={[-7, 6, 8]} />
+      {/* Gegenlicht — bläulicher Silhouette-Rim */}
+      <pointLight color="#4488dd" intensity={5.0} distance={28} position={[4, 0, -10]} />
+      {/* Unterlicht — magisches Aufleuchten von unten */}
+      <pointLight color="#aaddff" intensity={7.0} distance={18} position={[0.5, -7, 4]} />
+      {/* Spot-Highlight — scharfe weiße Facettenreflexe */}
+      <pointLight color="#ffffff" intensity={6.0} distance={14} position={[5, 8, 2]} />
+      {/* Akzentlicht hinten-rechts */}
+      <pointLight color="#88bbff" intensity={3.0} distance={20} position={[-3, 3, -6]} />
     </>
   )
 }
@@ -217,6 +230,9 @@ function Scene() {
     <>
       <color attach="background" args={['#010d1f']} />
 
+      {/* Liefert Umgebungsreflexionen für Transmission-Material */}
+      <Environment preset="apartment" background={false} environmentIntensity={0.25} />
+
       <ColdLights />
       <IceBase />
       <IceMist />
@@ -246,7 +262,7 @@ function Scene() {
 export default function ParticleScene() {
   return (
     <Canvas
-      camera={{ position: [0, 1.5, 13], fov: 48 }}
+      camera={{ position: [0, 0.5, 12], fov: 52 }}
       style={{
         position: 'absolute',
         inset: 0,
@@ -259,7 +275,7 @@ export default function ParticleScene() {
         alpha:             true,
         powerPreference:   'high-performance',
         toneMapping:       THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 1.2,
+        toneMappingExposure: 1.1,
       }}
       dpr={[1, 1.5]}
     >
