@@ -1,267 +1,252 @@
-import { useMemo, useRef, useEffect } from 'react'
+import { useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { EffectComposer, ChromaticAberration, Bloom, Noise } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
 
-/* ─── Particle vertex shader ──────────────────────────────────────────────── */
-const vertexShader = `
-  uniform float uTime;
-  uniform vec2  uMouse;
-  attribute float aScale;
-  attribute vec3  aRandom;
+/* ─── Hexagonale Eiskristall-Geometrie (Ih-Kristallstruktur) ──────── */
+function createIceCrystalGeo(height = 4, radius = 0.5, capFrac = 0.14) {
+  const capH = height * capFrac
+  const N    = 6
+  const pts  = []
 
-  void main() {
-    vec3 pos = position;
-    float t = uTime * 0.18;
-
-    pos.x += sin(pos.y * 0.55 + t       + aRandom.x * 6.28318) * 0.18;
-    pos.y += cos(pos.x * 0.42 + t * 0.7 + aRandom.y * 6.28318) * 0.16;
-    pos.z += sin(pos.z * 0.30 + t * 0.5 + aRandom.z * 6.28318) * 0.12;
-
-    vec2 m = uMouse * vec2(3.8, 2.4);
-    float d = length(pos.xy - m);
-    float str = smoothstep(2.2, 0.0, d) * 0.55;
-    if (d > 0.001) pos.xy += normalize(pos.xy - m) * str;
-
-    vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
-    gl_Position  = projectionMatrix * mvPos;
-    gl_PointSize = aScale * (210.0 / -mvPos.z);
+  // 0–5  : unterer Ring
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2
+    pts.push(Math.cos(a) * radius, 0, Math.sin(a) * radius)
   }
-`
-
-/* ─── Particle fragment shader ────────────────────────────────────────────── */
-const fragmentShader = `
-  void main() {
-    vec2  uv   = gl_PointCoord - vec2(0.5);
-    float dist = length(uv);
-    if (dist > 0.5) discard;
-    float alpha = 1.0 - smoothstep(0.14, 0.5, dist);
-    gl_FragColor = vec4(0.42, 0.72, 1.0, alpha * 0.72);
+  // 6–11 : oberer Ring
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2
+    pts.push(Math.cos(a) * radius, height, Math.sin(a) * radius)
   }
-`
+  // 12   : Spitze (Pyramiden-Abschluss)
+  pts.push(0, height + capH, 0)
+  // 13   : Bodenmitte
+  pts.push(0, 0, 0)
 
-/* ─── Particles — wide scattered cloud, not dense sphere ─────────────────── */
-function Particles({ count = 5500 }) {
-  const meshRef  = useRef()
-  const mouseTarget = useRef(new THREE.Vector2(0, 0))
-  const mouseSmooth = useRef(new THREE.Vector2(0, 0))
+  const idx = []
+  for (let i = 0; i < N; i++) {
+    const n = (i + 1) % N
+    idx.push(13, i, n)           // Bodenfläche
+    idx.push(i, 6 + i, n)       // Seitenwand unten
+    idx.push(n, 6 + i, 6 + n)   // Seitenwand oben
+    idx.push(6 + i, 12, 6 + n)  // Pyramidenkappe
+  }
 
-  const { geometry, uniforms } = useMemo(() => {
-    const positions = new Float32Array(count * 3)
-    const scales    = new Float32Array(count)
-    const randoms   = new Float32Array(count * 3)
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
+  geo.setIndex(idx)
+  geo.computeVertexNormals()
+  return geo
+}
 
-    const phi = Math.PI * (Math.sqrt(5) - 1)
-    for (let i = 0; i < count; i++) {
-      // Layered distribution: inner dense + outer sparse for depth
-      const layer  = Math.random()
-      const radius = layer < 0.3
-        ? 1.8 + Math.random() * 1.4          // inner halo
-        : 3.2 + Math.random() * 2.8          // outer cloud
+/* ─── Einzelner Eiskristall mit physikalisch korrektem Glas-Material ─ */
+function IceCrystal({ height, radius, position, rotation, speed = 0.007 }) {
+  const ref = useRef()
+  const geo = useMemo(() => createIceCrystalGeo(height, radius), [height, radius])
 
-      const y     = 1 - (i / (count - 1)) * 2
-      const r     = Math.sqrt(Math.max(0, 1 - y * y))
-      const theta = phi * i
-
-      positions[i * 3]     = Math.cos(theta) * r * radius
-      positions[i * 3 + 1] = y * radius * 0.85
-      positions[i * 3 + 2] = Math.sin(theta) * r * radius * 0.55
-
-      scales[i]          = Math.random() * 1.9 + 0.4
-      randoms[i * 3]     = Math.random()
-      randoms[i * 3 + 1] = Math.random()
-      randoms[i * 3 + 2] = Math.random()
-    }
-
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-    geo.setAttribute('aScale',   new THREE.BufferAttribute(scales, 1))
-    geo.setAttribute('aRandom',  new THREE.BufferAttribute(randoms, 3))
-
-    const uni = {
-      uTime:  { value: 0 },
-      uMouse: { value: new THREE.Vector2(0, 0) },
-    }
-    return { geometry: geo, uniforms: uni }
-  }, [count])
-
-  useEffect(() => {
-    const onMove = (e) => {
-      mouseTarget.current.x =  (e.clientX / window.innerWidth)  * 2 - 1
-      mouseTarget.current.y = -(e.clientY / window.innerHeight) * 2 + 1
-    }
-    window.addEventListener('mousemove', onMove, { passive: true })
-    return () => window.removeEventListener('mousemove', onMove)
-  }, [])
+  const mat = useMemo(() => new THREE.MeshPhysicalMaterial({
+    color:               new THREE.Color('#c2dff5'),
+    transmission:        0.92,       // fast komplett transparent
+    roughness:           0.035,      // sehr glatte Eisfläche
+    metalness:           0.0,
+    ior:                 1.31,       // echter Brechungsindex von Eis
+    thickness:           radius * 4,
+    transparent:         true,
+    side:                THREE.DoubleSide,
+    envMapIntensity:     1.0,
+    attenuationColor:    new THREE.Color('#88c0f0'),
+    attenuationDistance: 3.0,        // Licht wird blau eingefärbt
+  }), [radius])
 
   useFrame((_, delta) => {
-    uniforms.uTime.value += delta
-    mouseSmooth.current.x += (mouseTarget.current.x - mouseSmooth.current.x) * 0.04
-    mouseSmooth.current.y += (mouseTarget.current.y - mouseSmooth.current.y) * 0.04
-    uniforms.uMouse.value.copy(mouseSmooth.current)
+    ref.current.rotation.y += delta * speed
   })
 
   return (
-    <points ref={meshRef} geometry={geometry}>
-      <shaderMaterial
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
-        uniforms={uniforms}
+    <mesh ref={ref} geometry={geo} material={mat} position={position} rotation={rotation} />
+  )
+}
+
+/* ─── Zweite transparentere Innenstruktur für Tiefe ─────────────────  */
+function IceCrystalInner({ height, radius, position, rotation }) {
+  const ref = useRef()
+  const geo = useMemo(() => createIceCrystalGeo(height * 0.7, radius * 0.6, 0.18), [height, radius])
+
+  const mat = useMemo(() => new THREE.MeshPhysicalMaterial({
+    color:            new THREE.Color('#d8eeff'),
+    transmission:     0.96,
+    roughness:        0.01,
+    metalness:        0.02,
+    ior:              1.31,
+    thickness:        radius * 2,
+    transparent:      true,
+    side:             THREE.DoubleSide,
+    envMapIntensity:  1.2,
+  }), [radius])
+
+  useFrame((_, delta) => {
+    ref.current.rotation.y -= delta * 0.012
+    ref.current.rotation.x += delta * 0.005
+  })
+
+  return (
+    <mesh ref={ref} geometry={geo} material={mat} position={position} rotation={rotation} />
+  )
+}
+
+/* ─── Eisnebel — feine Partikel für Atmosphäre ───────────────────── */
+function IceMist() {
+  const ref = useRef()
+
+  const geo = useMemo(() => {
+    const count = 2800
+    const pos   = new Float32Array(count * 3)
+    const sz    = new Float32Array(count)
+    for (let i = 0; i < count; i++) {
+      pos[i * 3]     = (Math.random() - 0.5) * 24
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 16
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 14
+      sz[i] = Math.random() * 0.018 + 0.006
+    }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    g.setAttribute('size',     new THREE.Float32BufferAttribute(sz, 1))
+    return g
+  }, [])
+
+  useFrame((_, delta) => {
+    ref.current.rotation.y += delta * 0.012
+    ref.current.rotation.x += delta * 0.004
+  })
+
+  return (
+    <points ref={ref} geometry={geo}>
+      <pointsMaterial
+        size={0.018}
+        color="#90c8f0"
         transparent
-        depthWrite={false}
+        opacity={0.25}
+        sizeAttenuation
       />
     </points>
   )
 }
 
-/* ─── Crystal core — octahedron (ice shard, not sphere) ──────────────────── */
-function CrystalCore() {
-  const outer  = useRef()
-  const wire   = useRef()
-  const inner  = useRef()
-
-  useFrame((_, delta) => {
-    outer.current.rotation.y += delta * 0.06
-    outer.current.rotation.x += delta * 0.018
-    wire.current.rotation.y  += delta * 0.06
-    wire.current.rotation.x  += delta * 0.018
-    inner.current.rotation.y -= delta * 0.10
-    inner.current.rotation.z += delta * 0.055
-  })
-
-  return (
-    <>
-      {/* Solid inner fill — deep ice blue */}
-      <mesh ref={outer}>
-        <octahedronGeometry args={[2.3, 0]} />
-        <meshBasicMaterial color="#061a38" transparent opacity={0.82} />
-      </mesh>
-      {/* Sharp wireframe overlay */}
-      <mesh ref={wire}>
-        <octahedronGeometry args={[2.32, 0]} />
-        <meshBasicMaterial color="#1e60a8" wireframe transparent opacity={0.50} />
-      </mesh>
-      {/* Inner spinning icosahedron */}
-      <mesh ref={inner}>
-        <icosahedronGeometry args={[1.1, 1]} />
-        <meshBasicMaterial color="#2878cc" wireframe transparent opacity={0.55} />
-      </mesh>
-    </>
-  )
-}
-
-/* ─── Floating crystal shards around the core ────────────────────────────── */
-function CrystalShards() {
-  const shards = useMemo(() => [
-    { pos: [ 3.8,  1.2, -0.8], rx: 0.05, ry: 0.12, rz: 0.03, size: 0.18, color: '#1858a0' },
-    { pos: [-3.5,  0.4,  1.0], rx:-0.04, ry:-0.08, rz: 0.06, size: 0.14, color: '#1858a0' },
-    { pos: [ 1.2,  3.2, -1.5], rx: 0.07, ry: 0.05, rz:-0.04, size: 0.16, color: '#2070b8' },
-    { pos: [-1.8, -3.4,  0.6], rx:-0.06, ry: 0.10, rz: 0.05, size: 0.12, color: '#1858a0' },
-    { pos: [ 2.6, -2.2,  2.0], rx: 0.03, ry:-0.07, rz:-0.08, size: 0.20, color: '#2878c8' },
-    { pos: [-2.8,  2.8, -1.2], rx:-0.08, ry: 0.04, rz: 0.07, size: 0.15, color: '#1858a0' },
-    { pos: [ 4.2, -0.6,  1.8], rx: 0.06, ry:-0.05, rz: 0.04, size: 0.11, color: '#2070b8' },
-    { pos: [-1.0,  4.0,  1.0], rx:-0.03, ry: 0.09, rz:-0.06, size: 0.13, color: '#2878c8' },
-  ], [])
-
-  const refs = useRef(shards.map(() => null))
-
-  useFrame((_, delta) => {
-    refs.current.forEach((ref, i) => {
-      if (!ref) return
-      ref.rotation.x += delta * shards[i].rx
-      ref.rotation.y += delta * shards[i].ry
-      ref.rotation.z += delta * shards[i].rz
-    })
-  })
+/* ─── Eisoberfläche — flache Grundplatte ─────────────────────────── */
+function IceBase() {
+  const mat = useMemo(() => new THREE.MeshPhysicalMaterial({
+    color:        new THREE.Color('#a0ccee'),
+    transmission: 0.70,
+    roughness:    0.15,
+    metalness:    0.0,
+    ior:          1.31,
+    thickness:    0.5,
+    transparent:  true,
+    side:         THREE.DoubleSide,
+    opacity:      0.55,
+  }), [])
 
   return (
-    <>
-      {shards.map((s, i) => (
-        <mesh
-          key={i}
-          ref={el => refs.current[i] = el}
-          position={s.pos}
-        >
-          <octahedronGeometry args={[s.size, 0]} />
-          <meshBasicMaterial color={s.color} transparent opacity={0.70} />
-        </mesh>
-      ))}
-    </>
-  )
-}
-
-/* ─── Two clean orbital rings ─────────────────────────────────────────────── */
-function OrbitalRing({ radius, tilt, speedX, speedY, speedZ, color, opacity }) {
-  const ref = useRef()
-  useFrame((_, delta) => {
-    ref.current.rotation.x += delta * speedX
-    ref.current.rotation.y += delta * speedY
-    ref.current.rotation.z += delta * speedZ
-  })
-  return (
-    <mesh ref={ref} rotation={tilt}>
-      <torusGeometry args={[radius, 0.016, 3, 200]} />
-      <meshBasicMaterial color={color} transparent opacity={opacity} />
+    <mesh position={[0.5, -2.2, 0]} rotation={[-0.04, 0.1, 0]}>
+      <cylinderGeometry args={[5.5, 5.5, 0.06, 6]} />
+      <primitive object={mat} attach="material" />
     </mesh>
   )
 }
 
-/* ─── Post-processing ─────────────────────────────────────────────────────── */
+/* ─── Beleuchtung — kalte Mehrpunkt-Inszenierung ────────────────── */
+function ColdLights() {
+  return (
+    <>
+      {/* Sehr dunkles, kaltes Ambiente */}
+      <ambientLight color="#0d1f38" intensity={2.0} />
+      {/* Hauptlicht — oben rechts, kaltes Weiß */}
+      <directionalLight color="#cce8ff" intensity={3.5} position={[7, 10, 5]} />
+      {/* Fülllicht links — Eisblau */}
+      <pointLight color="#3a7acc" intensity={5.0} distance={30} position={[-6, 4, 7]} />
+      {/* Gegenlicht — schafft Silhouette-Glow */}
+      <pointLight color="#6699ee" intensity={3.0} distance={22} position={[3, -1, -8]} />
+      {/* Unterlicht — magisches Aufleuchten der Kristalle von unten */}
+      <pointLight color="#b0d8ff" intensity={4.5} distance={16} position={[0.5, -6, 3]} />
+      {/* Akzentlicht — rechts oben, Facetten-Highlights */}
+      <pointLight color="#ffffff" intensity={2.0} distance={12} position={[4, 6, 2]} />
+    </>
+  )
+}
+
+/* ─── Post-Processing ────────────────────────────────────────────── */
 function Effects() {
   return (
     <EffectComposer>
-      <ChromaticAberration
-        blendFunction={BlendFunction.NORMAL}
-        offset={new THREE.Vector2(0.0008, 0.0006)}
-      />
       <Bloom
         mipmapBlur
-        luminanceThreshold={0.70}
-        luminanceSmoothing={0.4}
-        intensity={0.28}
+        luminanceThreshold={0.50}
+        luminanceSmoothing={0.35}
+        intensity={0.55}
+      />
+      <ChromaticAberration
+        blendFunction={BlendFunction.NORMAL}
+        offset={new THREE.Vector2(0.0014, 0.0010)}
       />
       <Noise
         premultiply
         blendFunction={BlendFunction.ADD}
-        opacity={0.04}
+        opacity={0.03}
       />
     </EffectComposer>
   )
 }
 
-/* ─── Scene ───────────────────────────────────────────────────────────────── */
+/* ─── Szene — Kristall-Cluster ───────────────────────────────────── */
 function Scene() {
+  // [height, radius, position, rotation, speed]
+  const crystals = [
+    { h: 6.2, r: 0.66, pos: [ 0.9, -0.4,  0.0], rot: [-0.03,  0.18,  0.04], spd: 0.006 },
+    { h: 5.4, r: 0.58, pos: [-1.5, -0.7, -1.8], rot: [ 0.07, -0.28,  0.11], spd: 0.008 },
+    { h: 4.2, r: 0.48, pos: [ 2.5, -1.0,  0.8], rot: [ 0.11,  0.45, -0.07], spd: 0.009 },
+    { h: 5.0, r: 0.54, pos: [ 1.8,  0.5, -2.5], rot: [ 0.14, -0.22,  0.06], spd: 0.007 },
+    { h: 3.0, r: 0.38, pos: [-0.3, -1.2,  1.8], rot: [-0.09,  0.12,  0.13], spd: 0.011 },
+    { h: 2.6, r: 0.32, pos: [-3.2, -0.2,  0.4], rot: [-0.05,  0.38,  0.10], spd: 0.010 },
+    { h: 2.0, r: 0.26, pos: [ 3.5, -1.8, -0.6], rot: [ 0.19,  0.28, -0.16], spd: 0.013 },
+    { h: 1.6, r: 0.20, pos: [-1.0,  1.4,  0.8], rot: [ 0.22, -0.12,  0.09], spd: 0.016 },
+  ]
+
   return (
     <>
-      {/* Deep cold navy — more blue than before */}
-      <color attach="background" args={['#000c1c']} />
+      <color attach="background" args={['#010d1f']} />
 
-      {/* Two clean rings at different angles */}
-      <OrbitalRing
-        radius={5.4}  tilt={[0.5, 0, 0.15]}
-        speedX={0.04} speedY={0.07} speedZ={0.02}
-        color="#1a5080" opacity={0.48}
-      />
-      <OrbitalRing
-        radius={4.2}  tilt={[-0.7, 0.2, 0.3]}
-        speedX={-0.05} speedY={0.04} speedZ={0.06}
-        color="#0e3868" opacity={0.38}
-      />
+      <ColdLights />
+      <IceBase />
+      <IceMist />
 
-      <CrystalCore />
-      <CrystalShards />
-      <Particles count={5500} />
+      {crystals.map((c, i) => (
+        <IceCrystal
+          key={i}
+          height={c.h}
+          radius={c.r}
+          position={c.pos}
+          rotation={c.rot}
+          speed={c.spd}
+        />
+      ))}
+
+      {/* Innere Kristallstrukturen auf den drei großen */}
+      <IceCrystalInner height={6.2} radius={0.66} position={[ 0.9, -0.4,  0.0]} rotation={[-0.03, 0.18, 0.04]} />
+      <IceCrystalInner height={5.4} radius={0.58} position={[-1.5, -0.7, -1.8]} rotation={[ 0.07,-0.28, 0.11]} />
+      <IceCrystalInner height={5.0} radius={0.54} position={[ 1.8,  0.5, -2.5]} rotation={[ 0.14,-0.22, 0.06]} />
+
       <Effects />
     </>
   )
 }
 
-/* ─── Canvas ──────────────────────────────────────────────────────────────── */
+/* ─── Canvas ─────────────────────────────────────────────────────── */
 export default function ParticleScene() {
   return (
     <Canvas
-      camera={{ position: [0, 1, 10.5], fov: 52 }}
+      camera={{ position: [0, 1.5, 13], fov: 48 }}
       style={{
         position: 'absolute',
         inset: 0,
@@ -269,7 +254,13 @@ export default function ParticleScene() {
         height: '100%',
         pointerEvents: 'none',
       }}
-      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+      gl={{
+        antialias:         true,
+        alpha:             true,
+        powerPreference:   'high-performance',
+        toneMapping:       THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 1.2,
+      }}
       dpr={[1, 1.5]}
     >
       <Scene />
