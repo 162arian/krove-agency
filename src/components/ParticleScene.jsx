@@ -1,285 +1,244 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment } from '@react-three/drei'
-import { EffectComposer, ChromaticAberration, Bloom, Noise } from '@react-three/postprocessing'
+import { Environment, Float } from '@react-three/drei'
+import { EffectComposer, ChromaticAberration, Bloom } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
 
-/* ─── Hexagonale Eiskristall-Geometrie (Ih-Kristallstruktur) ──────── */
-function createIceCrystalGeo(height = 4, radius = 0.5, capFrac = 0.14) {
-  const capH = height * capFrac
-  const N    = 6
-  const pts  = []
-
-  // 0–5  : unterer Ring
-  for (let i = 0; i < N; i++) {
-    const a = (i / N) * Math.PI * 2
-    pts.push(Math.cos(a) * radius, 0, Math.sin(a) * radius)
-  }
-  // 6–11 : oberer Ring
-  for (let i = 0; i < N; i++) {
-    const a = (i / N) * Math.PI * 2
-    pts.push(Math.cos(a) * radius, height, Math.sin(a) * radius)
-  }
-  // 12   : Spitze (Pyramiden-Abschluss)
-  pts.push(0, height + capH, 0)
-  // 13   : Bodenmitte
-  pts.push(0, 0, 0)
-
-  const idx = []
-  for (let i = 0; i < N; i++) {
-    const n = (i + 1) % N
-    idx.push(13, i, n)           // Bodenfläche
-    idx.push(i, 6 + i, n)       // Seitenwand unten
-    idx.push(n, 6 + i, 6 + n)   // Seitenwand oben
-    idx.push(6 + i, 12, 6 + n)  // Pyramidenkappe
-  }
-
-  const geo = new THREE.BufferGeometry()
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
-  geo.setIndex(idx)
-  geo.computeVertexNormals()
-  return geo
-}
-
-/* ─── Einzelner Eiskristall mit physikalisch korrektem Glas-Material ─ */
-function IceCrystal({ height, radius, position, rotation, speed = 0.007 }) {
-  const ref = useRef()
-  const geo = useMemo(() => createIceCrystalGeo(height, radius), [height, radius])
-
-  const mat = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color:               new THREE.Color('#b8deff'),
-    transmission:        0.82,       // Glaseffekt
-    roughness:           0.015,      // sehr glatte Eisfläche — scharfe Highlights
-    metalness:           0.0,
-    ior:                 1.31,       // echter Brechungsindex von Eis
-    thickness:           radius * 3.5,
-    transparent:         true,
-    side:                THREE.DoubleSide,
-    envMapIntensity:     1.4,
-    attenuationColor:    new THREE.Color('#66aaff'),
-    attenuationDistance: 2.0,
-    specularIntensity:   1.0,
-    specularColor:       new THREE.Color('#ffffff'),
-    iridescence:         0.4,        // Prismatisches Kristallschimmern
-    iridescenceIOR:      1.8,
-    iridescenceThicknessRange: [80, 400],
-  }), [radius])
-
-  useFrame((_, delta) => {
-    ref.current.rotation.y += delta * speed
+/* ─── Hyper-realistisches Glas-Material ────────────────────────── */
+function makeGlassMat({ color = '#dff0ff', attenColor = '#4488ff', thick = 1.8 } = {}) {
+  return new THREE.MeshPhysicalMaterial({
+    color:                     new THREE.Color(color),
+    transmission:              0.88,
+    roughness:                 0.0,
+    metalness:                 0.0,
+    ior:                       1.52,          // Borosilikat-Glas
+    thickness:                 thick,
+    transparent:               true,
+    envMapIntensity:           1.0,
+    clearcoat:                 1.0,           // Hochglanz-Klarlack-Schicht
+    clearcoatRoughness:        0.0,
+    attenuationColor:          new THREE.Color(attenColor),
+    attenuationDistance:       4.5,
+    iridescence:               0.45,          // Prismatisches Schimmern
+    iridescenceIOR:            1.9,
+    iridescenceThicknessRange: [80, 700],
+    side:                      THREE.FrontSide,
+    specularIntensity:         1.0,
+    specularColor:             new THREE.Color('#ffffff'),
   })
-
-  return (
-    <mesh ref={ref} geometry={geo} material={mat} position={position} rotation={rotation} />
-  )
 }
 
-/* ─── Zweite transparentere Innenstruktur für Tiefe ─────────────────  */
-function IceCrystalInner({ height, radius, position, rotation }) {
-  const ref = useRef()
-  const geo = useMemo(() => createIceCrystalGeo(height * 0.7, radius * 0.6, 0.18), [height, radius])
-
-  const mat = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color:            new THREE.Color('#ddf0ff'),
-    transmission:     0.92,
-    roughness:        0.008,
-    metalness:        0.0,
-    ior:              1.31,
-    thickness:        radius * 2,
-    transparent:      true,
-    side:             THREE.DoubleSide,
-    envMapIntensity:  1.6,
-    specularIntensity: 1.0,
-    specularColor:    new THREE.Color('#ffffff'),
-    iridescence:      0.25,
-    iridescenceIOR:   1.5,
-    iridescenceThicknessRange: [60, 300],
-  }), [radius])
-
-  useFrame((_, delta) => {
-    ref.current.rotation.y -= delta * 0.012
-    ref.current.rotation.x += delta * 0.005
-  })
-
-  return (
-    <mesh ref={ref} geometry={geo} material={mat} position={position} rotation={rotation} />
+/* ─── Einzelner Glas-Kristall ───────────────────────────────────── */
+function GlassGem({ position, scale, rotation, spinSpeed, geoType, color, attenColor, floatSpeed, floatIntensity }) {
+  const meshRef = useRef()
+  const mat = useMemo(
+    () => makeGlassMat({ color, attenColor, thick: scale[1] * 0.9 }),
+    [color, attenColor, scale]
   )
-}
-
-/* ─── Eisnebel — feine Partikel für Atmosphäre ───────────────────── */
-function IceMist() {
-  const ref = useRef()
-
   const geo = useMemo(() => {
-    const count = 2800
+    if (geoType === 'ico') return new THREE.IcosahedronGeometry(1, 0)
+    if (geoType === 'dod') return new THREE.DodecahedronGeometry(1, 0)
+    return new THREE.OctahedronGeometry(1, 0)  // Diamant-Oktaeder (Standard)
+  }, [geoType])
+
+  useFrame((_, delta) => {
+    if (!meshRef.current) return
+    meshRef.current.rotation.y += delta * spinSpeed
+  })
+
+  return (
+    <Float
+      speed={floatSpeed}
+      rotationIntensity={0.15}
+      floatIntensity={floatIntensity}
+    >
+      <mesh
+        ref={meshRef}
+        geometry={geo}
+        material={mat}
+        position={position}
+        scale={scale}
+        rotation={rotation}
+      />
+    </Float>
+  )
+}
+
+/* ─── Maus-reaktiver Kristall-Cluster ───────────────────────────── */
+function GemCluster({ mouseRef }) {
+  const groupRef = useRef()
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return
+    const tx = mouseRef.current.x * 0.32
+    const ty = -mouseRef.current.y * 0.18
+    groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, tx, delta * 1.6)
+    groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, ty, delta * 1.6)
+  })
+
+  /* position, scale [x,y,z], rotation, spinSpeed, geoType, color, attenColor, floatSpeed, floatIntensity */
+  const gems = [
+    // — Großer Zentral-Kristall
+    { pos: [ 0.4,  0.2,  0.0], scl: [0.62, 2.4, 0.62], rot: [ 0.00,  0.10,  0.03], spd: 0.004, t: 'oct', c: '#e8f6ff', a: '#3366ff', fs: 0.6, fi: 0.4 },
+    // — Zweiter großer Kristall links
+    { pos: [-1.8, -0.4, -0.6], scl: [0.54, 2.0, 0.54], rot: [ 0.05,  0.35,  0.07], spd: 0.006, t: 'oct', c: '#d8eeff', a: '#2255ee', fs: 0.7, fi: 0.5 },
+    // — Dritter rechts
+    { pos: [ 2.2, -0.2, -0.9], scl: [0.48, 1.75, 0.48],rot: [-0.04, -0.25,  0.05], spd: 0.007, t: 'oct', c: '#def4ff', a: '#4477ff', fs: 0.8, fi: 0.5 },
+    // — Hinterer Kristall
+    { pos: [-0.5,  0.8, -2.2], scl: [0.42, 1.5,  0.42], rot: [ 0.08,  0.55, -0.06], spd: 0.009, t: 'oct', c: '#cce8ff', a: '#1144dd', fs: 0.6, fi: 0.6 },
+    // — Vorderer Akzent
+    { pos: [ 1.3,  0.5, -1.6], scl: [0.36, 1.25, 0.36], rot: [ 0.10, -0.30,  0.08], spd: 0.008, t: 'oct', c: '#d4eeff', a: '#3366ee', fs: 0.9, fi: 0.4 },
+    // — Kleiner links außen
+    { pos: [-3.0,  0.1,  0.0], scl: [0.30, 1.05, 0.30], rot: [ 0.06,  0.42,  0.09], spd: 0.011, t: 'oct', c: '#c8e4ff', a: '#2244cc', fs: 1.0, fi: 0.5 },
+    // — Kleiner rechts außen — Ikosaeder
+    { pos: [ 3.2, -0.9, -0.4], scl: [0.28, 0.28, 0.28], rot: [-0.05,  0.22, -0.09], spd: 0.013, t: 'ico', c: '#e0f4ff', a: '#4488ff', fs: 1.1, fi: 0.7 },
+    // — Schwebendes Dodekaeder oben
+    { pos: [ 0.5,  2.0, -1.0], scl: [0.22, 0.22, 0.22], rot: [ 0.15, -0.12,  0.11], spd: 0.016, t: 'dod', c: '#eef8ff', a: '#4488ff', fs: 1.4, fi: 0.8 },
+    // — Kleiner Diamant unten links
+    { pos: [-1.3, -1.6,  0.4], scl: [0.26, 0.88, 0.26], rot: [-0.08,  0.38,  0.05], spd: 0.012, t: 'oct', c: '#d0ecff', a: '#1133bb', fs: 0.8, fi: 0.6 },
+    // — Winziger Akzent — Ikosaeder Mitte rechts
+    { pos: [ 1.8,  1.2, -0.5], scl: [0.16, 0.16, 0.16], rot: [ 0.20,  0.18, -0.14], spd: 0.020, t: 'ico', c: '#f0faff', a: '#5599ff', fs: 1.6, fi: 0.9 },
+    // — Winziger Akzent links unten
+    { pos: [-2.2, -0.8,  0.6], scl: [0.14, 0.46, 0.14], rot: [ 0.12, -0.44,  0.18], spd: 0.018, t: 'oct', c: '#ddf2ff', a: '#3377ff', fs: 1.3, fi: 0.7 },
+  ]
+
+  return (
+    <group ref={groupRef}>
+      {gems.map((g, i) => (
+        <GlassGem
+          key={i}
+          position={g.pos}
+          scale={g.scl}
+          rotation={g.rot}
+          spinSpeed={g.spd}
+          geoType={g.t}
+          color={g.c}
+          attenColor={g.a}
+          floatSpeed={g.fs}
+          floatIntensity={g.fi}
+        />
+      ))}
+    </group>
+  )
+}
+
+/* ─── Schwebender Glasstaub ─────────────────────────────────────── */
+function GlassDust() {
+  const ref = useRef()
+  const geo = useMemo(() => {
+    const count = 1800
     const pos   = new Float32Array(count * 3)
-    const sz    = new Float32Array(count)
     for (let i = 0; i < count; i++) {
-      pos[i * 3]     = (Math.random() - 0.5) * 24
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 16
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 14
-      sz[i] = Math.random() * 0.018 + 0.006
+      pos[i * 3]     = (Math.random() - 0.5) * 22
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 14
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 12
     }
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-    g.setAttribute('size',     new THREE.Float32BufferAttribute(sz, 1))
     return g
   }, [])
 
   useFrame((_, delta) => {
-    ref.current.rotation.y += delta * 0.012
-    ref.current.rotation.x += delta * 0.004
+    ref.current.rotation.y += delta * 0.007
+    ref.current.rotation.x += delta * 0.003
   })
 
   return (
     <points ref={ref} geometry={geo}>
-      <pointsMaterial
-        size={0.018}
-        color="#90c8f0"
-        transparent
-        opacity={0.25}
-        sizeAttenuation
-      />
+      <pointsMaterial size={0.022} color="#90c8f8" transparent opacity={0.28} sizeAttenuation />
     </points>
   )
 }
 
-/* ─── Eisoberfläche — flache Grundplatte ─────────────────────────── */
-function IceBase() {
-  const mat = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color:        new THREE.Color('#a0ccee'),
-    transmission: 0.70,
-    roughness:    0.15,
-    metalness:    0.0,
-    ior:          1.31,
-    thickness:    0.5,
-    transparent:  true,
-    side:         THREE.DoubleSide,
-    opacity:      0.55,
-  }), [])
-
-  return (
-    <mesh position={[0.5, -2.2, 0]} rotation={[-0.04, 0.1, 0]}>
-      <cylinderGeometry args={[5.5, 5.5, 0.06, 6]} />
-      <primitive object={mat} attach="material" />
-    </mesh>
-  )
-}
-
-/* ─── Beleuchtung — kalte Mehrpunkt-Inszenierung ────────────────── */
+/* ─── Kühle Beleuchtung ─────────────────────────────────────────── */
 function ColdLights() {
   return (
     <>
-      {/* Ambiente — kaltes Eisblau */}
-      <ambientLight color="#6ea8d8" intensity={0.6} />
-      {/* Hauptlicht — oben rechts, hartes Kristall-Highlight */}
-      <directionalLight color="#ffffff" intensity={4.0} position={[7, 12, 5]} castShadow />
-      {/* Fülllicht links — tiefes Eisblau */}
-      <pointLight color="#2266bb" intensity={8.0} distance={35} position={[-7, 6, 8]} />
-      {/* Gegenlicht — bläulicher Silhouette-Rim */}
-      <pointLight color="#4488dd" intensity={5.0} distance={28} position={[4, 0, -10]} />
-      {/* Unterlicht — magisches Aufleuchten von unten */}
-      <pointLight color="#aaddff" intensity={7.0} distance={18} position={[0.5, -7, 4]} />
-      {/* Spot-Highlight — scharfe weiße Facettenreflexe */}
-      <pointLight color="#ffffff" intensity={6.0} distance={14} position={[5, 8, 2]} />
-      {/* Akzentlicht hinten-rechts */}
-      <pointLight color="#88bbff" intensity={3.0} distance={20} position={[-3, 3, -6]} />
+      <ambientLight color="#4477aa" intensity={0.25} />
+      {/* Hartes Hauptlicht — erzeugt scharfe Facettenreflexe auf Glas */}
+      <directionalLight color="#ffffff" intensity={7.0} position={[6, 12, 5]} />
+      {/* Zweites Hauptlicht von rechts */}
+      <directionalLight color="#cce8ff" intensity={4.0} position={[-5, 8, 4]} />
+      {/* Tiefes Eisblau links */}
+      <pointLight color="#1144cc" intensity={6.0} distance={40} position={[-8, 6, 9]} />
+      {/* Rim-Licht von hinten */}
+      <pointLight color="#4466dd" intensity={4.0} distance={30} position={[ 4, 1, -12]} />
+      {/* Magisches Unterlicht */}
+      <pointLight color="#88ccff" intensity={5.0} distance={22} position={[ 0.5, -8, 5]} />
+      {/* Enger Spot direkt auf Kristalle — erzeugt Glasglitzer */}
+      <pointLight color="#ffffff" intensity={8.0} distance={10} position={[ 2, 6,  4]} />
+      {/* Akzent hinten links */}
+      <pointLight color="#5588ff" intensity={2.5} distance={24} position={[-4, 2, -7]} />
     </>
   )
 }
 
-/* ─── Post-Processing ────────────────────────────────────────────── */
-function Effects() {
-  return (
-    <EffectComposer>
-      <Bloom
-        mipmapBlur
-        luminanceThreshold={0.50}
-        luminanceSmoothing={0.35}
-        intensity={0.55}
-      />
-      <ChromaticAberration
-        blendFunction={BlendFunction.NORMAL}
-        offset={new THREE.Vector2(0.0014, 0.0010)}
-      />
-      <Noise
-        premultiply
-        blendFunction={BlendFunction.ADD}
-        opacity={0.03}
-      />
-    </EffectComposer>
-  )
-}
-
-/* ─── Szene — Kristall-Cluster ───────────────────────────────────── */
-function Scene() {
-  // [height, radius, position, rotation, speed]
-  const crystals = [
-    { h: 6.2, r: 0.66, pos: [ 0.9, -0.4,  0.0], rot: [-0.03,  0.18,  0.04], spd: 0.006 },
-    { h: 5.4, r: 0.58, pos: [-1.5, -0.7, -1.8], rot: [ 0.07, -0.28,  0.11], spd: 0.008 },
-    { h: 4.2, r: 0.48, pos: [ 2.5, -1.0,  0.8], rot: [ 0.11,  0.45, -0.07], spd: 0.009 },
-    { h: 5.0, r: 0.54, pos: [ 1.8,  0.5, -2.5], rot: [ 0.14, -0.22,  0.06], spd: 0.007 },
-    { h: 3.0, r: 0.38, pos: [-0.3, -1.2,  1.8], rot: [-0.09,  0.12,  0.13], spd: 0.011 },
-    { h: 2.6, r: 0.32, pos: [-3.2, -0.2,  0.4], rot: [-0.05,  0.38,  0.10], spd: 0.010 },
-    { h: 2.0, r: 0.26, pos: [ 3.5, -1.8, -0.6], rot: [ 0.19,  0.28, -0.16], spd: 0.013 },
-    { h: 1.6, r: 0.20, pos: [-1.0,  1.4,  0.8], rot: [ 0.22, -0.12,  0.09], spd: 0.016 },
-  ]
-
+/* ─── Szene ─────────────────────────────────────────────────────── */
+function Scene({ mouseRef }) {
   return (
     <>
       <color attach="background" args={['#010d1f']} />
 
-      {/* Liefert Umgebungsreflexionen für Transmission-Material */}
-      <Environment preset="apartment" background={false} environmentIntensity={0.25} />
+      {/* Environment liefert Reflexionen für Glas-Transmission */}
+      <Environment preset="apartment" background={false} environmentIntensity={0.18} />
 
       <ColdLights />
-      <IceBase />
-      <IceMist />
+      <GlassDust />
+      <GemCluster mouseRef={mouseRef} />
 
-      {crystals.map((c, i) => (
-        <IceCrystal
-          key={i}
-          height={c.h}
-          radius={c.r}
-          position={c.pos}
-          rotation={c.rot}
-          speed={c.spd}
+      <EffectComposer>
+        <Bloom
+          mipmapBlur
+          luminanceThreshold={0.55}
+          luminanceSmoothing={0.40}
+          intensity={0.65}
         />
-      ))}
-
-      {/* Innere Kristallstrukturen auf den drei großen */}
-      <IceCrystalInner height={6.2} radius={0.66} position={[ 0.9, -0.4,  0.0]} rotation={[-0.03, 0.18, 0.04]} />
-      <IceCrystalInner height={5.4} radius={0.58} position={[-1.5, -0.7, -1.8]} rotation={[ 0.07,-0.28, 0.11]} />
-      <IceCrystalInner height={5.0} radius={0.54} position={[ 1.8,  0.5, -2.5]} rotation={[ 0.14,-0.22, 0.06]} />
-
-      <Effects />
+        <ChromaticAberration
+          blendFunction={BlendFunction.NORMAL}
+          offset={new THREE.Vector2(0.0012, 0.0009)}
+        />
+      </EffectComposer>
     </>
   )
 }
 
-/* ─── Canvas ─────────────────────────────────────────────────────── */
+/* ─── Canvas  ────────────────────────────────────────────────────── */
 export default function ParticleScene() {
+  // Maus-Position normiert -1…1, geteilt über ref (kein Re-render)
+  const mouseRef = useRef({ x: 0, y: 0 })
+
+  useEffect(() => {
+    const onMove = (e) => {
+      mouseRef.current.x = (e.clientX / window.innerWidth)  * 2 - 1
+      mouseRef.current.y = (e.clientY / window.innerHeight) * 2 - 1
+    }
+    // passive → kein Scroll-Overhead; pointerEvents:none auf Canvas
+    // → window-Event feuert trotzdem, Cursor.jsx läuft weiter
+    window.addEventListener('mousemove', onMove, { passive: true })
+    return () => window.removeEventListener('mousemove', onMove)
+  }, [])
+
   return (
     <Canvas
-      camera={{ position: [0, 0.5, 12], fov: 52 }}
+      camera={{ position: [0, 0.5, 11], fov: 50 }}
       style={{
-        position: 'absolute',
-        inset: 0,
-        width: '100%',
-        height: '100%',
-        pointerEvents: 'none',
+        position:      'absolute',
+        inset:         0,
+        width:         '100%',
+        height:        '100%',
+        pointerEvents: 'none',   // Cursor.jsx & Scroll laufen durch
       }}
       gl={{
-        antialias:         true,
-        alpha:             true,
-        powerPreference:   'high-performance',
-        toneMapping:       THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 1.1,
+        antialias:           true,
+        alpha:               true,
+        powerPreference:     'high-performance',
+        toneMapping:         THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 1.0,
       }}
       dpr={[1, 1.5]}
     >
-      <Scene />
+      <Scene mouseRef={mouseRef} />
     </Canvas>
   )
 }
