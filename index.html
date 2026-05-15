@@ -6,24 +6,25 @@
   <title>Arian Ansari — Creative Director & Unternehmenslösungen</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <meta name="description" content="Arian Ansari – Creative Director. VFX, Video Editing, Autofolierung, Unternehmenskleidung, Fassadenfolierung und Digital & Print. Seit 2022." />
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --void:        #010814;
-      --deep:        #040d1e;
-      --navy:        #071428;
+      --void:        #010106;
+      --deep:        #030310;
+      --navy:        #060618;
       --ice:         #4fc3f7;
       --teal:        #00e5ff;
       --mint:        #00ffd4;
       --violet:      #7c3aed;
-      --glass-bg:    rgba(255,255,255,0.04);
-      --glass-bd:    rgba(180,230,255,0.10);
-      --txt-hi:      #f0f8ff;
-      --txt-mid:     rgba(176,220,255,0.72);
-      --txt-lo:      rgba(120,170,210,0.50);
+      --glass-bg:    rgba(255,255,255,0.035);
+      --glass-bd:    rgba(180,230,255,0.08);
+      --txt-hi:      #eef6ff;
+      --txt-mid:     rgba(170,215,255,0.68);
+      --txt-lo:      rgba(110,160,205,0.48);
       --r-xl:        20px;
       --r-2xl:       28px;
       --ease:        cubic-bezier(0.16, 1, 0.3, 1);
@@ -33,14 +34,14 @@
     html { scroll-behavior: smooth; }
 
     body {
-      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      font-family: 'Inter', system-ui, sans-serif;
       background: var(--void);
       color: var(--txt-hi);
       overflow-x: hidden;
     }
 
     /* ── CANVAS LAYERS ──────────────────────────────────────────── */
-    /* Aurora canvas: extra large + CSS blur = real northern lights */
+    /* Cinematic bokeh canvas: oversized + heavy blur = volumetric light feel */
     #aurora-canvas {
       position: fixed;
       top: -80px; left: -80px;
@@ -48,17 +49,22 @@
       height: calc(100vh + 160px);
       z-index: 0;
       pointer-events: none;
-      filter: blur(55px) saturate(130%);
-      opacity: 0.9;
+      filter: blur(72px) saturate(115%);
+      opacity: 0.92;
     }
-    /* Constellation canvas: crisp dots + lines */
+    /* Particle canvas: crisp subtle dots */
     #bg-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
 
-    /* Fine grain overlay */
+    /* Cinematic film grain overlay */
     body::before {
       content:''; position:fixed; inset:0; z-index:2; pointer-events:none;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-      opacity: .028; mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.68' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: .042; mix-blend-mode: overlay;
+    }
+    /* Vignette — dark corners for cinematic depth */
+    body::after {
+      content:''; position:fixed; inset:0; z-index:2; pointer-events:none;
+      background: radial-gradient(ellipse 85% 80% at 50% 50%, transparent 40%, rgba(0,0,0,0.55) 100%);
     }
 
     main { position: relative; z-index: 3; }
@@ -153,7 +159,7 @@
         inset 0 1px 0 rgba(255,255,255,0.06);
     }
     .logo {
-      font-family:'Bricolage Grotesque',sans-serif; font-size:21px; font-weight:800;
+      font-family:'Syne',sans-serif; font-size:21px; font-weight:800;
       letter-spacing:.08em; color:var(--txt-hi); text-decoration:none;
       display:flex; align-items:center; gap:10px;
     }
@@ -240,9 +246,9 @@
 
     /* Role / discipline line */
     .hero-role {
-      display: block; margin-top: 20px; margin-bottom: 30px;
-      font-size: clamp(11px, 1.3vw, 13px); font-weight: 500;
-      letter-spacing: .18em; text-transform: uppercase;
+      display: block; margin-top: 22px; margin-bottom: 28px;
+      font-size: clamp(10px, 1.1vw, 12px); font-weight: 500;
+      letter-spacing: .22em; text-transform: uppercase;
       color: var(--txt-lo);
       animation: fu .8s .15s var(--ease) both;
     }
@@ -264,30 +270,55 @@
     }
     @keyframes pdot { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.6);opacity:.4} }
 
+    /* ── SHIMMER ANIMATION ──────────────────────────────────────── */
+    @keyframes shimmer {
+      0%   { background-position: 0% center; }
+      100% { background-position: 300% center; }
+    }
+    @keyframes textglow {
+      0%,100% { filter: drop-shadow(0 0 28px rgba(0,229,255,.45)) drop-shadow(0 0 60px rgba(0,229,255,.18)); }
+      50%      { filter: drop-shadow(0 0 48px rgba(0,229,255,.75)) drop-shadow(0 0 100px rgba(0,229,255,.28)); }
+    }
+
     /* Main headline — HUGE */
     .hero-headline {
-      font-family: 'Bricolage Grotesque', sans-serif;
-      line-height: 0.88; letter-spacing: -.04em;
+      font-family: 'Syne', sans-serif;
+      line-height: 0.86; letter-spacing: -.04em;
       margin-bottom: 0;
       animation: fu .8s .08s var(--ease) both;
     }
     .hl-top {
       display: block;
-      font-size: clamp(64px, 10.5vw, 130px);
-      font-weight: 300; /* light weight for contrast */
-      color: var(--txt-hi);
-      letter-spacing: -.03em;
+      font-size: clamp(68px, 11vw, 138px);
+      font-weight: 800;
+      letter-spacing: -.04em;
+      /* Outlined text — pure editorial */
+      -webkit-text-stroke: 1.5px rgba(180,230,255,0.45);
+      -webkit-text-fill-color: transparent;
+      color: transparent;
     }
     .hl-bot {
       display: block;
-      font-size: clamp(76px, 12.5vw, 155px);
+      font-size: clamp(72px, 12vw, 152px);
       font-weight: 800;
       letter-spacing: -.05em;
-      line-height: 0.84;
-      background: linear-gradient(100deg,
-        #a8edff 0%, var(--teal) 30%, #00ffd4 60%, var(--ice) 100%);
+      line-height: 0.86;
+      background: linear-gradient(
+        100deg,
+        #4fc3f7 0%,
+        #a8edff 12%,
+        #ffffff 20%,
+        #00ffd4 30%,
+        #00e5ff 50%,
+        #a8edff 65%,
+        #ffffff 72%,
+        #4fc3f7 85%,
+        #a8edff 100%
+      );
+      background-size: 300% auto;
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
+      animation: shimmer 6s linear infinite, textglow 4s ease-in-out infinite;
       filter: drop-shadow(0 0 44px rgba(0,229,255,.55));
     }
 
@@ -323,7 +354,7 @@
         0 8px 28px rgba(0,0,0,0.30);
     }
     .hf-num {
-      font-family: 'Bricolage Grotesque', sans-serif;
+      font-family: 'Syne', sans-serif;
       font-size: 26px; font-weight: 800; letter-spacing: -.03em;
       background: linear-gradient(135deg, var(--txt-hi), var(--ice));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
@@ -353,7 +384,7 @@
       padding:15px 34px;
       background: linear-gradient(160deg, #4ff0ff 0%, #00e5ff 40%, #38b6e8 100%);
       border: none; border-radius:100px; cursor:pointer; text-decoration:none;
-      color:var(--void); font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; font-weight:600;
+      color:var(--void); font-family:'Inter',sans-serif; font-size:15px; font-weight:600;
       letter-spacing:.02em; position: relative; overflow: hidden;
       box-shadow:
         0 4px 22px rgba(0,229,255,.30),
@@ -384,7 +415,7 @@
       background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(79,195,247,0.04) 100%);
       border:1px solid rgba(180,230,255,.22); border-radius:100px;
       cursor:pointer; text-decoration:none;
-      color:var(--txt-hi); font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; font-weight:500;
+      color:var(--txt-hi); font-family:'Inter',sans-serif; font-size:15px; font-weight:500;
       display:inline-flex; align-items:center; gap:8px; position: relative; overflow: hidden;
       backdrop-filter: blur(16px) saturate(180%);
       -webkit-backdrop-filter: blur(16px) saturate(180%);
@@ -446,7 +477,7 @@
       text-transform:uppercase; color:var(--teal); margin-bottom:14px;
     }
     .s-title {
-      font-family:'Bricolage Grotesque',sans-serif; font-size:clamp(30px,5vw,54px);
+      font-family:'Syne',sans-serif; font-size:clamp(30px,5vw,54px);
       font-weight:700; line-height:1.1; letter-spacing:-.022em;
       color:var(--txt-hi); margin-bottom:18px;
     }
@@ -470,7 +501,7 @@
       animation: marq 32s linear infinite;
     }
     .mi {
-      font-family:'Bricolage Grotesque',sans-serif; font-size:12px; font-weight:600;
+      font-family:'Syne',sans-serif; font-size:12px; font-weight:600;
       letter-spacing:.13em; text-transform:uppercase; color:var(--txt-lo);
       white-space:nowrap; display:flex; align-items:center; gap:14px;
     }
@@ -516,7 +547,7 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 6px 20px rgba(0,229,255,.18);
     }
     .ficon svg { width:22px; height:22px; stroke:var(--teal); stroke-width:1.5; fill:none; stroke-linecap:round; stroke-linejoin:round; }
-    .ftitle { font-family:'Bricolage Grotesque',sans-serif; font-size:18px; font-weight:700; color:var(--txt-hi); margin-bottom:10px; letter-spacing:-.01em; }
+    .ftitle { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; color:var(--txt-hi); margin-bottom:10px; letter-spacing:-.01em; }
     .fdesc  { font-size:13.5px; color:var(--txt-mid); line-height:1.65; }
 
     /* ── STATS ──────────────────────────────────────────────────── */
@@ -550,7 +581,7 @@
       background: linear-gradient(180deg, rgba(79,195,247,.06) 0%, rgba(79,195,247,.02) 100%);
     }
     .snum {
-      font-family:'Bricolage Grotesque',sans-serif; font-size:clamp(36px,4.5vw,60px);
+      font-family:'Syne',sans-serif; font-size:clamp(36px,4.5vw,60px);
       font-weight:800; letter-spacing:-.04em; line-height:1;
       background:linear-gradient(135deg,var(--txt-hi),var(--ice));
       -webkit-background-clip:text; -webkit-text-fill-color:transparent;
@@ -612,7 +643,7 @@
 
     .bi { padding:32px 28px; height:100%; display:flex; flex-direction:column; }
     .btag { font-size:10px; font-weight:600; letter-spacing:.13em; text-transform:uppercase; color:var(--teal); margin-bottom:18px; }
-    .btitle { font-family:'Bricolage Grotesque',sans-serif; font-size:24px; font-weight:700; line-height:1.2; letter-spacing:-.02em; color:var(--txt-hi); margin-bottom:10px; }
+    .btitle { font-family:'Syne',sans-serif; font-size:24px; font-weight:700; line-height:1.2; letter-spacing:-.02em; color:var(--txt-hi); margin-bottom:10px; }
     .btext { font-size:13.5px; color:var(--txt-mid); line-height:1.6; flex:1; }
     .bvis { position:absolute; right:20px; bottom:20px; opacity:.13; pointer-events:none; }
 
@@ -639,7 +670,7 @@
     }
     .tcard::before {
       content:'\201C'; position:absolute; top:10px; right:22px;
-      font-family:'Bricolage Grotesque',sans-serif; font-size:110px; font-weight:800;
+      font-family:'Syne',sans-serif; font-size:110px; font-weight:800;
       color:rgba(79,195,247,.055); line-height:1; pointer-events:none;
     }
     .stars { display:flex; gap:3px; margin-bottom:18px; }
@@ -650,7 +681,7 @@
       width:40px; height:40px; border-radius:50%; flex-shrink:0;
       background:linear-gradient(135deg,var(--teal),var(--violet));
       display:flex; align-items:center; justify-content:center;
-      font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:14px; color:#fff;
+      font-family:'Syne',sans-serif; font-weight:700; font-size:14px; color:#fff;
       border:2px solid rgba(255,255,255,.09);
     }
     .aname { font-weight:600; font-size:13.5px; color:var(--txt-hi); }
@@ -686,7 +717,7 @@
       pointer-events:none;
     }
     .cta-title {
-      font-family:'Bricolage Grotesque',sans-serif; font-size:clamp(32px,5vw,58px);
+      font-family:'Syne',sans-serif; font-size:clamp(32px,5vw,58px);
       font-weight:800; letter-spacing:-.03em; line-height:1.05;
       color:var(--txt-hi); margin-bottom:18px; position:relative;
     }
@@ -705,7 +736,7 @@
     footer { border-top:1px solid rgba(180,230,255,.055); padding:60px max(24px,8vw) 36px; }
     .footer-grid { display:grid; grid-template-columns:1.8fr 1fr 1fr; gap:56px; margin-bottom:52px; }
     .fbrand { font-size:13.5px; color:var(--txt-lo); line-height:1.7; margin-top:14px; max-width:250px; }
-    .fcol-t { font-family:'Bricolage Grotesque',sans-serif; font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--txt-hi); margin-bottom:18px; }
+    .fcol-t { font-family:'Syne',sans-serif; font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--txt-hi); margin-bottom:18px; }
     .flinks { list-style:none; display:flex; flex-direction:column; gap:11px; }
     .flinks a { font-size:13.5px; color:var(--txt-lo); text-decoration:none; transition:color .2s; }
     .flinks a:hover { color:var(--ice); }
@@ -761,7 +792,7 @@
     <span class="logo-mark" aria-hidden="true">
       <svg viewBox="0 0 16 16" fill="none"><path d="M8 2L4 14M12 2L8 14M3 9h10" stroke="var(--void)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </span>
-    Arian Ansari
+    <span style="letter-spacing:.12em;font-size:14px;font-weight:700">AA</span>
   </a>
   <ul class="nav-links">
     <li><a href="#features">Leistungen</a></li>
@@ -1115,7 +1146,7 @@
         <span class="logo-mark" aria-hidden="true">
           <svg viewBox="0 0 16 16" fill="none"><path d="M8 2L4 14M12 2L8 14M3 9h10" stroke="var(--void)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
-        Arian Ansari
+        <span style="letter-spacing:.12em;font-size:14px;font-weight:700">AA</span>
       </a>
       <p class="fbrand">Creative Director &amp; Unternehmenslösungen.<br>VFX · Video · Folierung · Digital &amp; Print.<br><span style="color:var(--txt-lo);font-size:12px">Seit 2022 · arianansari.de</span></p>
     </div>
@@ -1148,73 +1179,50 @@
 </footer>
 
 <script>
-// ── AURORA CANVAS ──────────────────────────────────────────────────
+// ── CINEMATIC BOKEH BACKGROUND ─────────────────────────────────────
 (function(){
   const ac  = document.getElementById('aurora-canvas');
   const ctx = ac.getContext('2d');
   let AW, AH, t = 0;
 
-  // Each band: y position (0–1 of height), band height, wave speed,
-  // wave frequency, amplitude px, opacity, and horizontal color stops
-  const BANDS = [
-    { y:.08, h:.28, spd:.00014, frq:.0028, amp:65, op:.16,
-      cols:[[0,'transparent'],[.15,'#0a2a6e'],[.45,'#0097b2'],[.75,'#0288d1'],[1,'transparent']] },
-    { y:.04, h:.18, spd:.00010, frq:.0022, amp:45, op:.10,
-      cols:[[0,'transparent'],[.2,'#4a0080'],[.55,'#00e5ff'],[.85,'#0d47a1'],[1,'transparent']] },
-    { y:.20, h:.22, spd:.00018, frq:.0035, amp:55, op:.11,
-      cols:[[0,'transparent'],[.18,'#004d50'],[.5,'#4fc3f7'],[.8,'#0288d1'],[1,'transparent']] },
-    { y:.14, h:.14, spd:.00012, frq:.0026, amp:38, op:.07,
-      cols:[[0,'transparent'],[.3,'#00e5ff'],[.6,'#6a1ab1'],[1,'transparent']] },
-    { y:.30, h:.16, spd:.00008, frq:.0018, amp:42, op:.06,
-      cols:[[0,'transparent'],[.25,'#00414d'],[.6,'#00bcd4'],[1,'transparent']] },
+  // Large, slow-drifting light orbs — rendered soft via CSS blur
+  // px/py = normalized center, rw/rh = normalized radius ellipse
+  // r/g/b = color, op = peak opacity, sx/sy = drift speeds, ph = phase
+  const BOKEH = [
+    { px:.12, py:.06, rw:.52, rh:.38, r:0,  g:55, b:150, op:.34, sx:2.8e-5, sy:2.0e-5, ph:0    },
+    { px:.84, py:.80, rw:.46, rh:.32, r:50, g:0,  b:120, op:.26, sx:2.4e-5, sy:3.2e-5, ph:1.3  },
+    { px:.52, py:.18, rw:.34, rh:.24, r:0,  g:40, b: 95, op:.16, sx:3.8e-5, sy:2.6e-5, ph:2.5  },
+    { px:.06, py:.68, rw:.32, rh:.22, r:0,  g:65, b:100, op:.12, sx:3.3e-5, sy:4.0e-5, ph:0.9  },
+    { px:.76, py:.10, rw:.26, rh:.18, r:35, g:0,  b: 85, op:.10, sx:2.6e-5, sy:3.4e-5, ph:3.2  },
   ];
 
   function resize(){
-    // Oversized to avoid blur edge cutoff
     AW = ac.width  = window.innerWidth  + 160;
     AH = ac.height = window.innerHeight + 160;
   }
 
-  function drawBand(b, t){
-    const PTS = 110;
+  function drawBokeh(b, t){
+    // Slow orbital drift
+    const cx = (b.px + Math.sin(t * b.sx + b.ph) * 0.07) * AW;
+    const cy = (b.py + Math.cos(t * b.sy + b.ph) * 0.05) * AH;
+    const rw = b.rw * AW;
+    const rh = b.rh * AH;
+    const rMax = Math.max(rw, rh);
+
     ctx.save();
-    ctx.globalAlpha = b.op;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.translate(cx, cy);
+    ctx.scale(rw / rMax, rh / rMax);
 
-    // Horizontal gradient across band
-    const grad = ctx.createLinearGradient(0, 0, AW, 0);
-    b.cols.forEach(([s, c]) => grad.addColorStop(s, c));
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, rMax);
+    grad.addColorStop(0,    `rgba(${b.r},${b.g},${b.b},${b.op})`);
+    grad.addColorStop(0.38, `rgba(${b.r},${b.g},${b.b},${+(b.op*.42).toFixed(3)})`);
+    grad.addColorStop(0.72, `rgba(${b.r},${b.g},${b.b},${+(b.op*.10).toFixed(3)})`);
+    grad.addColorStop(1,    'rgba(0,0,0,0)');
+
     ctx.fillStyle = grad;
-
     ctx.beginPath();
-    // Top wavy edge
-    for(let i = 0; i <= PTS; i++){
-      const x = (i/PTS) * AW;
-      const y = b.y*AH
-        + Math.sin(t*b.spd       + x*b.frq        ) * b.amp
-        + Math.sin(t*b.spd*1.73  + x*b.frq*2.10   ) * b.amp * .25
-        + Math.sin(t*b.spd*0.61  + x*b.frq*0.55+.8) * b.amp * .12;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    // Bottom wavy edge (reversed, different phase)
-    for(let i = PTS; i >= 0; i--){
-      const x = (i/PTS) * AW;
-      const y = (b.y+b.h)*AH
-        + Math.sin(t*b.spd*0.82  + x*b.frq*1.38+1.1) * b.amp * .65
-        + Math.sin(t*b.spd*1.41  + x*b.frq*0.72+2.3) * b.amp * .18;
-      ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.fill();
-
-    // Bright inner core: second pass at half opacity in center
-    ctx.globalAlpha = b.op * .4;
-    const coreGrad = ctx.createLinearGradient(0, b.y*AH, 0, (b.y+b.h)*AH);
-    coreGrad.addColorStop(0,   'transparent');
-    coreGrad.addColorStop(.35, 'rgba(180,240,255,.06)');
-    coreGrad.addColorStop(.5,  'rgba(200,250,255,.10)');
-    coreGrad.addColorStop(.65, 'rgba(180,240,255,.06)');
-    coreGrad.addColorStop(1,   'transparent');
-    ctx.fillStyle = coreGrad;
+    ctx.arc(0, 0, rMax, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -1222,7 +1230,7 @@
   function loop(){
     t += 16;
     ctx.clearRect(0, 0, AW, AH);
-    BANDS.forEach(b => drawBand(b, t));
+    BOKEH.forEach(b => drawBokeh(b, t));
     requestAnimationFrame(loop);
   }
 
